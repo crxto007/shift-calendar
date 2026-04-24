@@ -3,11 +3,23 @@
 import { useState, useEffect } from "react";
 import { getShifts, addShift, deleteShift, ICS_FEED_URL, Shift } from "@/lib/supabase";
 
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function getDaysInMonth(year: number, month: number) {
+  return new Date(year, month + 1, 0).getDate();
+}
+
+function getFirstDayOfMonth(year: number, month: number) {
+  return new Date(year, month, 1).getDay();
+}
+
 export default function Home() {
   const [shifts, setShifts] = useState<Shift[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [view, setView] = useState<"list" | "calendar">("calendar");
+  const [currentDate, setCurrentDate] = useState(new Date());
   const [formData, setFormData] = useState({
     date: "",
     start_time: "",
@@ -15,6 +27,9 @@ export default function Home() {
     title: "",
     location: "",
   });
+
+  const currentYear = currentDate.getFullYear();
+  const currentMonth = currentDate.getMonth();
 
   async function fetchShifts() {
     try {
@@ -56,15 +71,6 @@ export default function Home() {
     navigator.clipboard.writeText(ICS_FEED_URL);
   }
 
-  function formatDate(dateStr: string) {
-    return new Date(dateStr).toLocaleDateString("en-US", {
-      weekday: "short",
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
-  }
-
   function formatTime(timeStr: string) {
     const [hours, minutes] = timeStr.split(":");
     const date = new Date();
@@ -72,9 +78,102 @@ export default function Home() {
     return date.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" });
   }
 
+  function prevMonth() {
+    setCurrentDate(new Date(currentYear, currentMonth - 1, 1));
+  }
+
+  function nextMonth() {
+    setCurrentDate(new Date(currentYear, currentMonth + 1, 1));
+  }
+
+  function getShiftsForDate(dateStr: string) {
+    return shifts.filter((s) => s.date === dateStr);
+  }
+
+  function getMonthName(month: number) {
+    return new Date(currentYear, month).toLocaleString("en-US", { month: "long", year: "numeric" });
+  }
+
+  function renderCalendar() {
+    const daysInMonth = getDaysInMonth(currentYear, currentMonth);
+    const firstDay = getFirstDayOfMonth(currentYear, currentMonth);
+    const days: (number | null)[] = [];
+
+    for (let i = 0; i < firstDay; i++) days.push(null);
+    for (let i = 1; i <= daysInMonth; i++) days.push(i);
+
+    const weeks: (number | null)[][] = [];
+    for (let i = 0; i < days.length; i += 7) {
+      weeks.push(days.slice(i, i + 7));
+    }
+
+    return (
+      <div className="bg-white rounded-xl shadow-sm border border-zinc-200 overflow-hidden">
+        <div className="flex items-center justify-between p-4 border-b border-zinc-200">
+          <button
+            onClick={prevMonth}
+            className="p-2 hover:bg-zinc-100 rounded-lg transition-colors"
+          >
+            ←
+          </button>
+          <h3 className="text-lg font-semibold text-zinc-900">{getMonthName(currentMonth)}</h3>
+          <button
+            onClick={nextMonth}
+            className="p-2 hover:bg-zinc-100 rounded-lg transition-colors"
+          >
+            →
+          </button>
+        </div>
+
+        <div className="grid grid-cols-7">
+          {WEEKDAYS.map((day) => (
+            <div key={day} className="p-2 text-center text-sm font-medium text-zinc-500 bg-zinc-50 border-b border-zinc-200">
+              {day}
+            </div>
+          ))}
+
+          {weeks.map((week, wi) =>
+            week.map((day, di) => {
+              const dateStr = day ? `${currentYear}-${String(currentMonth + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}` : null;
+              const dayShifts = dateStr ? getShiftsForDate(dateStr) : [];
+              const isToday = dateStr === new Date().toISOString().split("T")[0];
+
+              return (
+                <div
+                  key={`${wi}-${di}`}
+                  className={`min-h-24 p-2 border-b border-r border-zinc-200 ${!day ? "bg-zinc-50" : "bg-white"}`}
+                >
+                  {day && (
+                    <>
+                      <div className={`text-sm font-medium mb-1 ${isToday ? "text-blue-600" : "text-zinc-700"}`}>
+                        {day}
+                      </div>
+                      <div className="space-y-1">
+                        {dayShifts.map((shift) => (
+                          <div
+                            key={shift.id}
+                            onClick={() => handleDelete(shift.id)}
+                            className="text-xs p-1 bg-blue-100 text-blue-800 rounded truncate cursor-pointer hover:bg-blue-200"
+                            title={`${shift.title} (click to delete)`}
+                          >
+                            {formatTime(shift.start_time)} {shift.title}
+                          </div>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })
+          )}
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-zinc-50 py-12 px-4">
-      <div className="max-w-3xl mx-auto">
+      <div className="max-w-4xl mx-auto">
         <header className="mb-8">
           <h1 className="text-3xl font-bold text-zinc-900">Shift Calendar</h1>
           <p className="text-zinc-600 mt-2">Manage your shifts and subscribe to the calendar</p>
@@ -105,7 +204,24 @@ export default function Home() {
         )}
 
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-xl font-semibold text-zinc-900">Shifts</h2>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setView("calendar")}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                view === "calendar" ? "bg-zinc-900 text-white" : "bg-white text-zinc-700 border border-zinc-300 hover:bg-zinc-50"
+              }`}
+            >
+              Calendar
+            </button>
+            <button
+              onClick={() => setView("list")}
+              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
+                view === "list" ? "bg-zinc-900 text-white" : "bg-white text-zinc-700 border border-zinc-300 hover:bg-zinc-50"
+              }`}
+            >
+              List
+            </button>
+          </div>
           <button
             onClick={() => setShowForm(!showForm)}
             className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
@@ -180,6 +296,8 @@ export default function Home() {
 
         {loading ? (
           <div className="text-center py-12 text-zinc-500">Loading...</div>
+        ) : view === "calendar" ? (
+          renderCalendar()
         ) : shifts.length === 0 ? (
           <div className="text-center py-12 text-zinc-500 bg-white rounded-xl border border-zinc-200">
             No shifts yet. Add your first shift above.
@@ -194,7 +312,7 @@ export default function Home() {
                 <div>
                   <h3 className="font-semibold text-zinc-900">{shift.title}</h3>
                   <p className="text-sm text-zinc-600">
-                    {formatDate(shift.date)} • {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+                    {new Date(shift.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} • {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
                   </p>
                   {shift.location && <p className="text-sm text-zinc-500">{shift.location}</p>}
                 </div>
