@@ -18,7 +18,6 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [view, setView] = useState<"list" | "calendar">("calendar");
   const [currentDate, setCurrentDate] = useState(new Date());
   const [formData, setFormData] = useState({
     date: "",
@@ -204,24 +203,7 @@ export default function Home() {
         )}
 
         <div className="flex items-center justify-between mb-4">
-          <div className="flex gap-2">
-            <button
-              onClick={() => setView("calendar")}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                view === "calendar" ? "bg-zinc-900 text-white" : "bg-white text-zinc-700 border border-zinc-300 hover:bg-zinc-50"
-              }`}
-            >
-              Calendar
-            </button>
-            <button
-              onClick={() => setView("list")}
-              className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                view === "list" ? "bg-zinc-900 text-white" : "bg-white text-zinc-700 border border-zinc-300 hover:bg-zinc-50"
-              }`}
-            >
-              List
-            </button>
-          </div>
+          <h2 className="text-xl font-semibold text-zinc-900">Add New Shift</h2>
           <button
             onClick={() => setShowForm(!showForm)}
             className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
@@ -296,35 +278,42 @@ export default function Home() {
 
         {loading ? (
           <div className="text-center py-12 text-zinc-500">Loading...</div>
-        ) : view === "calendar" ? (
-          renderCalendar()
-        ) : shifts.length === 0 ? (
-          <div className="text-center py-12 text-zinc-500 bg-white rounded-xl border border-zinc-200">
-            No shifts yet. Add your first shift above.
-          </div>
         ) : (
-          <div className="space-y-3">
-            {shifts.map((shift) => (
-              <div
-                key={shift.id}
-                className="bg-white rounded-xl shadow-sm border border-zinc-200 p-4 flex items-center justify-between"
-              >
-                <div>
-                  <h3 className="font-semibold text-zinc-900">{shift.title}</h3>
-                  <p className="text-sm text-zinc-600">
-                    {new Date(shift.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} • {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
-                  </p>
-                  {shift.location && <p className="text-sm text-zinc-500">{shift.location}</p>}
+          <>
+            {renderCalendar()}
+
+            <div className="mt-6">
+              <h2 className="text-xl font-semibold text-zinc-900 mb-4">All Shifts</h2>
+              {shifts.length === 0 ? (
+                <div className="text-center py-12 text-zinc-500 bg-white rounded-xl border border-zinc-200">
+                  No shifts yet. Add your first shift above.
                 </div>
-                <button
-                  onClick={() => handleDelete(shift.id)}
-                  className="text-red-600 hover:text-red-700 text-sm font-medium"
-                >
-                  Delete
-                </button>
-              </div>
-            ))}
-          </div>
+              ) : (
+                <div className="space-y-3">
+                  {shifts.map((shift) => (
+                    <div
+                      key={shift.id}
+                      className="bg-white rounded-xl shadow-sm border border-zinc-200 p-4 flex items-center justify-between"
+                    >
+                      <div>
+                        <h3 className="font-semibold text-zinc-900">{shift.title}</h3>
+                        <p className="text-sm text-zinc-600">
+                          {new Date(shift.date).toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" })} • {formatTime(shift.start_time)} - {formatTime(shift.end_time)}
+                        </p>
+                        {shift.location && <p className="text-sm text-zinc-500">{shift.location}</p>}
+                      </div>
+                      <button
+                        onClick={() => handleDelete(shift.id)}
+                        className="text-red-600 hover:text-red-700 text-sm font-medium"
+                      >
+                        Delete
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
         )}
       </div>
     </div>
